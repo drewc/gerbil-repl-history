@@ -1,0 +1,8 @@
+;;; -*- Gerbil -*-
+package: drewc
+namespace: drewc/repl-history
+
+(export repl-history%)
+(extern repl-history%)
+
+(load-module "drewc/repl-history")
