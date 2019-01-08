@@ -129,7 +129,7 @@
         #f))))
 
 (define (make-history-form re type n)
-  (macro-readenv-wrap re (list 'repl-history% (list 'quote type) n)))
+  (macro-readenv-wrap re (list 'drewc/repl-history#repl-history% (list 'quote type) n)))
 
 (define (read-percent-aux re start-pos)
   (let* ((str (##build-delimited-string re #\% 1))
