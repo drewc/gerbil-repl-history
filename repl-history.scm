@@ -1,3 +1,25 @@
+(namespace ("drewc/repl-history#"
+            repl-history-number
+            repl-history-result-table
+            repl-history-form-table
+            repl-history-previous-cache-length
+            repl-history-previous-cache
+            repl-history-add!
+            repl-history-number-cache-length
+            repl-history-number-cache
+            repl-history-clear
+            repl-history-nope
+            repl-history-find-cached-cons-by-number
+            repl-history-result
+            repl-history-previous-result
+            repl-history-form
+            repl-history-previous-form
+            repl-history%
+            read-percent
+            every
+            make-history-form
+            read-percent-aux))
+
 (define repl-history-number -1)
 
 (define repl-history-result-table
@@ -79,8 +101,8 @@
   ;;; This works only in gambit for now.
 
 
-(##include "~~lib/gambit#.scm")
-(##include "~~lib/_gambit#.scm")
+;;(##include "~~lib/gambit#.scm")
+;;(##include "~~lib/_gambit#.scm")
 
 (##define-macro (macro-peek-next-char-or-eof re) ;; possibly returns EOF
   `(macro-peek-char (macro-readenv-port ,re)))
@@ -112,7 +134,7 @@
 (define (read-percent-aux re start-pos)
   (let* ((str (##build-delimited-string re #\% 1))
          (length (string-length str))
-         (slist (string->list str))) 
+         (slist (string->list str)))
 
     (cond
      ;; First "%" repeating
@@ -127,12 +149,12 @@
      ((every char-numeric? (cdr slist))
       (make-history-form
        re 'result (##string->number/keyword/symbol re (list->string (cdr slist)) #t)))
-     ;; 
+     ;;
      ((and (equal? (cadr slist) #\+)
            (every char-numeric? (cddr slist)))
       (make-history-form
        re 'form (##string->number/keyword/symbol re (list->string (cddr slist)) #t)))
-     (else 
+     (else
       (macro-readenv-wrap re (##string->number/keyword/symbol re str #t))))))
 
-  (##readtable-char-handler-set! (current-readtable) #\%  read-percent)
+(##readtable-char-handler-set! (current-readtable) #\%  read-percent)
