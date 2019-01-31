@@ -18,7 +18,9 @@ Knowing what we said (aka ~+, ++, +++~ in CL) and what the response was (~*,
 In other-words, being able to refer to throwaways, and take them out of the
 garbage, is important when exploring and debugging. 
 
-With ~#%~ chosen as the dispatch, we make history!
+The Gerbil REPL, in the console, already has ~#\#~ to act as ~#\*~ does in CL. We'll take that over.
+
+For the rest, With ~#%~ chosen as the dispatch, we make history!
 
 * Usage 
 
@@ -26,9 +28,9 @@ With ~#%~ chosen as the dispatch, we make history!
 
 History is used all the time, and quick keystrokes are where it's at.  We have created a syntax.
 
+ - ~#[#...]~ :: ~#~ for the last result, ~##~ for 3 results ago, etc.
  - ~#%n~ :: ~#%0~ for result number 0
  - ~#%+n~ :: ~#%+8~ for the form that eval'd to result 8.
- - ~#%[#%...]~ :: ~#%~ for the last result, ~#%%%~ for 3 results ago, etc.
  - ~#%+[+...]~ :: ~#%+~ for the form that eval'd to the the last result (~#%~),
                  with ~#%++++~ doing what it should.
  
@@ -44,10 +46,10 @@ TOP> `(So what happens when I type ,#%8 ?)
 TOP> `(Awesome |,| and #%+8 for the form: ,#%+8)
 #%10 => (Awesome , and (repl-history% 'form 8) for the form 'what-number-are-we-at?)
 
-TOP> `("now," #% for previous result and #%+ for previous form: ,#% ,#%+) 
+TOP> `("now," # for previous result and #%+ for previous form: ,# ,#%+) 
 #%11 => (now, (repl-history% 'previous-result 0) for previous result and (repl-history% 'previous-form 0) for previous form (Awesome , and (repl-history% 'form 8) for the form 'what-number-are-we-at?) `(Awesome , and (repl-history% 'form 8) for the form ,(repl-history% 'form 8)))
 
-TOP> (list 11 '- 3 'for 'multiple 'previous '#%%%% '#%++++ #%%%% #%++++)  
+TOP> (list 11 '- 3 'for 'multiple 'previous '### '#%+++ #### #%++++)  
 #%12 => (11 - 3 for multiple previous (repl-history% 'previous-result 3) (repl-history% 'previous-form 3) what-number-are-we-at? 'what-number-are-we-at?)
 #+END_SRC
 
@@ -187,8 +189,6 @@ Still in gambit
       ((previous-form) (apply repl-history-previous-form args))))
 #+END_SRC
 
-** TODO ask vyzo how to gerbilize it
-
 * Syntax 
 
 First things first, + and * are bound variables in scheme. I've decided on ~#\%~
@@ -216,9 +216,12 @@ integer, returns that result. Furthermore, ~%+n~ returns the form that gave it.
     (let ((start-pos (##readenv-current-filepos re)))
       (macro-read-next-char-or-eof re) ;; skip #\#
       (let ((next (macro-peek-next-char-or-eof re)))
-        (if (char=? next #\%)
-          (read-percent re c start-pos)
-          (##read-sharp-aux re start-pos)))))
+        (cond ((or (eof-object? next) (char=? next #\#))
+               (read-history-value re #\#))
+              ((char=? next #\%)
+               (read-percent re c start-pos))
+              (else
+               (##read-sharp-aux re start-pos))))))
 
   (define (read-percent re c sharpstart)
     (let ((start-pos (##readenv-current-filepos re)))
@@ -240,6 +243,18 @@ integer, returns that result. Furthermore, ~%+n~ returns the form that gave it.
 
   (define (make-history-form re type n)
     (macro-readenv-wrap re (list 'drewc/repl-history#repl-history% (list 'quote type) n)))
+
+  (define (read-history-value re char)
+    (let* ((str (##build-delimited-string re char 1))
+           (length (string-length str))
+           (slist (string->list str)))
+      (cond
+       ;; First , char repeating
+       ((every char slist)
+        (make-history-form
+         re 'previous-result (- length 1)))
+       (else
+        (macro-readenv-wrap re (##string->number/keyword/symbol re str #t))))))
 
   (define (read-percent-aux re start-pos)
     (let* ((str (##build-delimited-string re #\% 1))

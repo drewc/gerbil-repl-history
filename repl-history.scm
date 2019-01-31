@@ -108,9 +108,12 @@
   (let ((start-pos (##readenv-current-filepos re)))
     (macro-read-next-char-or-eof re) ;; skip #\#
     (let ((next (macro-peek-next-char-or-eof re)))
-      (if (char=? next #\%)
-        (read-percent re c start-pos)
-        (##read-sharp-aux re start-pos)))))
+      (cond ((or (eof-object? next) (char=? next #\#))
+             (read-history-value re #\#))
+            ((char=? next #\%)
+             (read-percent re c start-pos))
+            (else
+             (##read-sharp-aux re start-pos))))))
 
 (define (read-percent re c sharpstart)
   (let ((start-pos (##readenv-current-filepos re)))
@@ -132,6 +135,18 @@
 
 (define (make-history-form re type n)
   (macro-readenv-wrap re (list 'drewc/repl-history#repl-history% (list 'quote type) n)))
+
+(define (read-history-value re char)
+  (let* ((str (##build-delimited-string re char 1))
+         (length (string-length str))
+         (slist (string->list str)))
+    (cond
+     ;; First , char repeating
+     ((every char slist)
+      (make-history-form
+       re 'previous-result (- length 1)))
+     (else
+      (macro-readenv-wrap re (##string->number/keyword/symbol re str #t))))))
 
 (define (read-percent-aux re start-pos)
   (let* ((str (##build-delimited-string re #\% 1))
