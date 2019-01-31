@@ -18,93 +18,89 @@ Knowing what we said (aka ~+, ++, +++~ in CL) and what the response was (~*,
 In other-words, being able to refer to throwaways, and take them out of the
 garbage, is important when exploring and debugging. 
 
-With ~%~ chosen as the symbol, we make history!
+With ~#%~ chosen as the dispatch, we make history!
 
 * Usage 
+
+ *Reader Macros!*
+
+History is used all the time, and quick keystrokes are where it's at.  We have created a syntax.
+
+ - ~#%n~ :: ~#%0~ for result number 0
+ - ~#%+n~ :: ~#%+8~ for the form that eval'd to result 8.
+ - ~#%[#%...]~ :: ~#%~ for the last result, ~#%%%~ for 3 results ago, etc.
+ - ~#%+[+...]~ :: ~#%+~ for the form that eval'd to the the last result (~#%~),
+                 with ~#%++++~ doing what it should.
+ 
+
+#+BEGIN_SRC gerbil
+> (test-repl-history>)
+TOP> 'what-number-are-we-at?
+#%8 => what-number-are-we-at?
+
+TOP> `(So what happens when I type ,#%8 ?)
+#%9 => (So what happens when I type what-number-are-we-at? ?)
+
+TOP> `(Awesome |,| and #%+8 for the form: ,#%+8)
+#%10 => (Awesome , and (repl-history% 'form 8) for the form 'what-number-are-we-at?)
+
+TOP> `("now," #% for previous result and #%+ for previous form: ,#% ,#%+) 
+#%11 => (now, (repl-history% 'previous-result 0) for previous result and (repl-history% 'previous-form 0) for previous form (Awesome , and (repl-history% 'form 8) for the form 'what-number-are-we-at?) `(Awesome , and (repl-history% 'form 8) for the form ,(repl-history% 'form 8)))
+
+TOP> (list 11 '- 3 'for 'multiple 'previous '#%%%% '#%++++ #%%%% #%++++)  
+#%12 => (11 - 3 for multiple previous (repl-history% 'previous-result 3) (repl-history% 'previous-form 3) what-number-are-we-at? 'what-number-are-we-at?)
+#+END_SRC
 
 In reality, all we are doing is recording what is read and eval'd and printed.
 There is one function exported that does it all. That function is ~repl-history%~.
 
 To add a history we use ~(repl-history% 'add! form result)~. To test, we'll print the number.
 
+#+BEGIN_SRC gerbil 
+  (define (TOP>)
+    (display "TOP> ")
+    (let* ((form (read))
+           (result (eval form))
+           (num (repl-history% 'add! form result)))
+      (display (string-append "#%" (number->string num) " => "))
+      result))
 
-#+BEGIN_SRC gerbil :tangle "test_repl-history.scm"
-(define (TOP>)
-  (display "TOP> ")
-  (let* ((form (read))
-         (result (eval form))
-         (num (repl-history% 'add! form result)))
-    (display (string-append "%" (number->string num) " => "))
-    result))
-
-(define (test-repl-history>)
-  (let ((t (TOP>)))
-    (if (eq? t 'exit)
-      t
-      (begin (display t) (display "\n") (test-repl-history>)))))
+  (define (test-repl-history>)
+    (let ((t (TOP>)))
+      (if (eq? t 'exit)
+        t
+        (begin (display t) (display "\n") (test-repl-history>)))))
 #+END_SRC
-
 Here is the REPL interaction.
 
 #+BEGIN_SRC gerbil
 > (test-repl-history>)
 TOP> (list 'this "is" '(the first) "numbered" 0)                   
-%0 => (this is (the first) numbered 0)
+#%0 => (this is (the first) numbered 0)
 
 TOP> 'now-the-second                                               
-%1 => now-the-second
+#%1 => now-the-second
 
 TOP> (list "We give a number" (+ 1 1 1))                           
-%2 => (We give a number 3)
+#%2 => (We give a number 3)
 
 TOP> `(|Now, we just entered:| ,(repl-history% 'previous-form 0) " to get" , (repl-history% 'previous-result 0))
-%3 => (Now, we just entered: (list We give a number (+ 1 1 1))  to get (We give a number 3))
+#%3 => (Now, we just entered: (list We give a number (+ 1 1 1))  to get (We give a number 3))
 
 TOP> `(|Now, we just entered:| ,(repl-history% 'previous-form 0) " to get" , (repl-history% 'previous-result 0))
-%4 => (Now, we just entered: `(Now, we just entered: ,(repl-history% 'previous-form 0)  to get ,(repl-history% 'previous-result 0))  to get (Now, we just entered: (list We give a number (+ 1 1 1))  to get (We give a number 3)))
+#%4 => (Now, we just entered: `(Now, we just entered: ,(repl-history% 'previous-form 0)  to get ,(repl-history% 'previous-result 0))  to get (Now, we just entered: (list We give a number (+ 1 1 1))  to get (We give a number 3)))
 
-TOP> (begin "And we can do it by number. Remember %0?" (cons (repl-history% 'form 0) (repl-history% 'result 0)))
-%5 => ((list 'this is '(the first) numbered 0) this is (the first) numbered 0)
+TOP> (begin "And we can do it by number. Remember #%0?" (cons (repl-history% 'form 0) (repl-history% 'result 0)))
+#%5 => ((list 'this is '(the first) numbered 0) this is (the first) numbered 0)
 
-TOP> (list "And %1" (repl-history% 'result 1))               
-%6 => (And %1 now-the-second)
+TOP> (list "And #%1" (repl-history% 'result 1))               
+#%6 => (And #%1 now-the-second)
 
 TOP> 'exit
-%7 => exit
+#%7 => exit
 > 
 #+END_SRC
 
-
-** Reader Macros!
-
-History is used all the time, and quick keystrokes are where it's at. If we note
-the very first REPL example, it prints ~%0~. We have created that syntax!
-
- - ~%n~ :: ~%0~ for result number 0
- - ~%+n~ :: ~%+8~ for the form that eval'd to result 8.
- - ~%[%...]~ :: ~%~ for the last result, ~%%%~ for 3 results ago, etc.
- - ~%+[+...]~ :: ~%+~ for the form that eval'd to the the last result (~%~),
-                 with ~%++++~ doing what it should.
- 
-
-
-#+BEGIN_SRC gerbil
-> (test-repl-history>)
-TOP> 'what-number-are-we-at?
-%8 => what-number-are-we-at?
-
-TOP> `(So what happens when I type ,%8 ?)
-%9 => (So what happens when I type what-number-are-we-at? ?)
-
-TOP> `(Awesome |,| and %+8 for the form: ,%+8)
-%10 => (Awesome , and (repl-history% 'form 8) for the form 'what-number-are-we-at?)
-
-TOP> `("now," % for previous result and %+ for previous form: ,% ,%+) 
-%11 => (now, (repl-history% 'previous-result 0) for previous result and (repl-history% 'previous-form 0) for previous form (Awesome , and (repl-history% 'form 8) for the form 'what-number-are-we-at?) `(Awesome , and (repl-history% 'form 8) for the form ,(repl-history% 'form 8)))
-
-TOP> (list 11 '- 4 'for 'multiple 'previous '%%%% '%++++ %%%% %++++)  
-%12 => (11 - 4 for multiple previous (repl-history% 'previous-result 3) (repl-history% 'previous-form 3) what-number-are-we-at? 'what-number-are-we-at?)
-#+END_SRC
 
 * History storage
 
@@ -200,7 +196,7 @@ as the delimiter. I, of course, use %name all the time for making things marked
 as internal. While that makes it a good candidate, it also means I cannot simply
 steal it as a reader syntax.
 
-So, the ~%~ sign is for the previous result, with ~%%~ being the second last result, etc.
+So, the ~#%~ sign is for the previous result, with ~#%%~ being the second last result, etc.
 
 The ~%+~ is for the previous form that, when it was eval'd, returned the
 previous result. ~%++~ does what it should.
@@ -210,21 +206,23 @@ integer, returns that result. Furthermore, ~%+n~ returns the form that gave it.
 
 #+NAME: repl-history-syntax
 #+BEGIN_SRC gerbil
-    ;;; This works only in gambit for now.
-
-
-  (##include "~~lib/gambit#.scm")
-  (##include "~~lib/_gambit#.scm")
-
   (##define-macro (macro-peek-next-char-or-eof re) ;; possibly returns EOF
     `(macro-peek-char (macro-readenv-port ,re)))
 
   (##define-macro (macro-read-next-char-or-eof re) ;; possibly returns EOF
     `(macro-read-char (macro-readenv-port ,re)))
 
-  (define (read-percent re c)
+  (define (read-sharp% re c)
     (let ((start-pos (##readenv-current-filepos re)))
       (macro-read-next-char-or-eof re) ;; skip #\#
+      (let ((next (macro-peek-next-char-or-eof re)))
+        (if (char=? next #\%)
+          (read-percent re c start-pos)
+          (##read-sharp-aux re start-pos)))))
+
+  (define (read-percent re c sharpstart)
+    (let ((start-pos (##readenv-current-filepos re)))
+      (macro-read-next-char-or-eof re) ;; skip #\%
       (read-percent-aux re start-pos)))
 
   (define (every pred tlist)
@@ -241,7 +239,7 @@ integer, returns that result. Furthermore, ~%+n~ returns the form that gave it.
           #f))))
 
   (define (make-history-form re type n)
-    (macro-readenv-wrap re (list 'repl-history% (list 'quote type) n)))
+    (macro-readenv-wrap re (list 'drewc/repl-history#repl-history% (list 'quote type) n)))
 
   (define (read-percent-aux re start-pos)
     (let* ((str (##build-delimited-string re #\% 1))
@@ -269,18 +267,55 @@ integer, returns that result. Furthermore, ~%+n~ returns the form that gave it.
        (else 
         (macro-readenv-wrap re (##string->number/keyword/symbol re str #t))))))
 
-    (##readtable-char-handler-set! (current-readtable) #\%  read-percent)
+  (##readtable-char-handler-set! (current-readtable) #\#  read-sharp%)
 #+END_SRC
 
+* Namespace
+  :PROPERTIES:
+  :CUSTOM_ID: gambit-namespace
+  :END:
+
+Gambit namespaces help to prefix symbols, like CL packages.
+
+#+NAME: gambit-namespace-repl-history
+#+BEGIN_SRC scheme
+(namespace ("drewc/repl-history#"
+            repl-history-number
+            repl-history-result-table
+            repl-history-form-table
+            repl-history-previous-cache-length
+            repl-history-previous-cache
+            repl-history-add!
+            repl-history-number-cache-length
+            repl-history-number-cache
+            repl-history-clear!
+            repl-history-nope
+            repl-history-find-cached-cons-by-number
+            repl-history-result
+            repl-history-previous-result
+            repl-history-form
+            repl-history-previous-form
+            repl-history%
+            read-percent
+            every
+            make-history-form
+            read-percent-aux))
+#+END_SRC
 * Testing
 
 Right now, it's all manual! This week I'll open some strings for read and test.
+
+#+BEGIN_SRC scheme 
+
+(load "test-repl-history.scm")
+
+#+END_SRC
 
 For now.
 
 #+BEGIN_SRC gerbil
 $ gsi
-Gambit v4.9.1
+g,Gambit v4.9.1
 
 > (load "_repl-history.scm")    
 "/home/user/me/src/gerbil-treadmill/_repl-history.scm"
@@ -288,33 +323,79 @@ Gambit v4.9.1
 "/home/user/me/src/gerbil-treadmill/test_repl-history.scm"
 > (test-repl-history>)          
 TOP> (begin "Zero form" 'first-result)
-%0 => first-result
-TOP> (begin "Previous result" %)
-%1 => first-result
-TOP> (begin "Previous form" %+) 
-%2 => (begin Previous result (repl-history% 'previous-result 0))
-TOP> %+++
-%3 => (begin Zero form 'first-result)
-TOP> %%%%
-%4 => first-result
-TOP> %0  
-%5 => first-result
-TOP> %+0
-%6 => (begin Zero form 'first-result)
-TOP> %6
-%7 => (begin Zero form 'first-result)
+#%0 => first-result
+TOP> (begin "Previous result" #%)
+#%1 => first-result
+TOP> (begin "Previous form" #%+) 
+#%2 => (begin Previous result (repl-history% 'previous-result 0))
+TOP> #%+++
+#%3 => (begin Zero form 'first-result)
+TOP> #%%%%
+#%4 => first-result
+TOP> #%0  
+#%5 => first-result
+TOP> #%+0
+#%6 => (begin Zero form 'first-result)
+TOP> #%6
+#%7 => (begin Zero form 'first-result)
 TOP> 
 #+END_SRC
 
+* Hacking 
 
-* Gambit _repl-history.scm  
+For testing Gambit, make sure the reader macro thingies are loaded.
+
+#+BEGIN_SRC scheme
+  (##include "~~lib/gambit#.scm")
+#+END_SRC
+
+Everything is in the ~drewc/repl-history#~ [[#gambit-namespace][namespace]].
 
 
-#+BEGIN_SRC gerbil :tangle "_repl-history.scm" :noweb yes
+* Files 
+
+** repl-history.scm 
+
+#+BEGIN_SRC scheme :noweb yes :tangle repl-history.scm
+<<gambit-namespace-repl-history>>
 
 <<repl-history>>
 
 <<repl-history-syntax>>
+#+END_SRC
+
+**  gambit-repl-history.scm  
 
 
+ #+BEGIN_SRC scheme :tangle "_repl-history.scm" :noweb yes
+   (##include "~~lib/gambit#.scm")
+   (##include "~~lib/_gambit#.scm")
+
+   <<repl-history>>
+
+   <<repl-history-syntax>>
+
+
+ #+END_SRC
+** test-repl-history.scm
+
+#+BEGIN_SRC scheme :tangle "test-repl-history.scm" :noweb yes
+  <<gambit-namespace-repl-history>>
+  (##include "~~lib/gambit#.scm")
+  (##include "~~lib/_gambit#.scm")
+  (load "repl-history.scm")
+
+  (define (TOP>)
+    (display "TOP> ")
+    (let* ((form (read))
+           (result (eval form))
+           (num (repl-history% 'add! form result)))
+      (display (string-append "%" (number->string num) " => "))
+      result))
+
+      (define (test-repl-history>)
+    (let ((t (TOP>)))
+      (if (eq? t 'exit)
+        t
+        (begin (display t) (display "\n") (test-repl-history>)))))
 #+END_SRC
